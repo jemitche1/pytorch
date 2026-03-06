@@ -764,9 +764,9 @@ def reinplace_inplaceable_ops_core(graph: torch.fx.Graph) -> None:
                 can_inplace_all = all_can_inplace(node, mutated_tensors_flat)
 
                 log.debug(
-                    "reinplace with_effects: mutated_tensors=%s, all_can_inplace=%s",
+                    "reinplace with_effects: mutated_tensors=%s, can_inplace_all=%s",
                     [str(a) for a in mutated_tensors_flat],
-                    all_can_inplace,
+                    can_inplace_all,
                 )
 
                 if can_inplace_all and inplaceable_op.extra_check(node):
