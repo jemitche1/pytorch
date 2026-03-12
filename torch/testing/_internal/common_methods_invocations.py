@@ -13299,16 +13299,14 @@ op_db: list[OpInfo] = [
     OpInfo('cholesky_solve',
            op=torch.cholesky_solve,
            dtypes=floating_and_complex_types(),
+           dtypesIfMPS=custom_types(torch.float32),
+           backward_dtypesIfMPS=custom_types(torch.float32),
            sample_inputs_func=sample_inputs_cholesky_solve,
            check_batched_gradgrad=False,
            supports_forward_ad=True,
            supports_fwgrad_bwgrad=True,
            gradcheck_wrapper=lambda *args, **kwargs: gradcheck_wrapper_triangular_input(*args, idx=1, **kwargs),
-           decorators=[skipCUDAIfNoMagma, skipCPUIfNoLapack],
-           skips=(
-               # Error: The operator 'aten::_cholesky_solve_helper' is not currently implemented for the MPS device
-               DecorateInfo(unittest.expectedFailure, 'TestCommon', device_type='mps'),
-           )),
+           decorators=[skipCUDAIfNoMagma, skipCPUIfNoLapack]),
     OpInfo('chunk',
            dtypes=all_types_and_complex_and(torch.bool, torch.bfloat16, torch.float16, torch.chalf),
            dtypesIfHpu=custom_types(torch.float32, torch.bfloat16, torch.int32),
@@ -18072,9 +18070,8 @@ op_db: list[OpInfo] = [
     OpInfo('narrow_copy',
            dtypes=all_types_and_complex_and(torch.bool, torch.bfloat16, torch.float16, torch.chalf),
            supports_out=True,
-           supports_forward_ad=False,
-           supports_fwgrad_bwgrad=False,
-           supports_autograd=False,
+           supports_forward_ad=True,
+           supports_fwgrad_bwgrad=True,
            # https://github.com/pytorch/pytorch/issues/86931
            sample_inputs_func=partial(sample_inputs_narrow_narrow_copy, is_narrow=False),
            reference_inputs_func=partial(reference_inputs_narrow_narrow_copy, is_narrow=False),
@@ -18304,18 +18301,14 @@ op_db: list[OpInfo] = [
     OpInfo('qr',
            op=torch.qr,
            dtypes=floating_and_complex_types(),
+           dtypesIfMPS=floating_types(),
            sample_inputs_func=sample_inputs_linalg_qr_geqrf,
            supports_forward_ad=True,
            supports_fwgrad_bwgrad=True,
            # In-place ops
            check_batched_gradgrad=False,
            decorators=[skipCUDAIfNoCusolver, skipCPUIfNoLapack],
-           skips=(
-               # MPS supports float32 only for linalg_qr (which torch.qr aliases)
-               DecorateInfo(unittest.expectedFailure, 'TestCommon', 'test_dtypes', device_type='mps'),
-               DecorateInfo(unittest.expectedFailure, 'TestCommon', device_type='mps',
-                            dtypes=(torch.complex64,)),
-           )),
+           ),
     UnaryUfuncInfo('rad2deg',
                    ref=np.degrees,
                    decorators=(precisionOverride({torch.bfloat16: 7e-1,
@@ -19278,6 +19271,7 @@ op_db: list[OpInfo] = [
                *args, **kwargs
            ),
            dtypes=floating_and_complex_types(),
+           dtypesIfMPS=floating_types(),
            # Runs very slowly on slow gradcheck - alternatively reduce input sizes
            gradcheck_fast_mode=True,
            supports_out=False,
@@ -19309,14 +19303,6 @@ op_db: list[OpInfo] = [
                DecorateInfo(unittest.expectedFailure, 'TestSchemaCheckModeOpInfo', 'test_schema_correctness',
                             dtypes=(torch.complex64, torch.complex128)),
                DecorateInfo(slowTest, 'TestCompositeCompliance', 'test_forward_ad'),
-               # MPS matmul aborts with uint8 input
-               DecorateInfo(unittest.skip("MPS driver aborts process on uint8 matmul"), 'TestCommon', 'test_dtypes',
-                            device_type='mps'),
-               # svd_lowrank calls linalg_qr internally, MPS linalg_qr supports float32 only
-               DecorateInfo(unittest.expectedFailure, 'TestCommon', 'test_noncontiguous_samples',
-                            device_type='mps', dtypes=(torch.complex64,)),
-               DecorateInfo(unittest.expectedFailure, 'TestCommon', 'test_variant_consistency_eager',
-                            device_type='mps', dtypes=(torch.complex64,)),
            )),
     OpInfo('pca_lowrank',
            op=lambda *args, **kwargs: wrapper_set_seed(
@@ -19324,6 +19310,7 @@ op_db: list[OpInfo] = [
                *args, **kwargs
            ),
            dtypes=floating_and_complex_types(),
+           dtypesIfMPS=floating_types(),
            # Runs very slowly on slow gradcheck - alternatively reduce input sizes
            gradcheck_fast_mode=True,
            supports_out=False,
@@ -19361,12 +19348,6 @@ op_db: list[OpInfo] = [
                DecorateInfo(unittest.expectedFailure, 'TestSchemaCheckModeOpInfo', 'test_schema_correctness',
                             dtypes=(torch.complex64, torch.complex128)),
                DecorateInfo(unittest.skip('output is non-deterministic'), 'TestCommon', 'test_compare_cpu'),
-               # pca_lowrank calls linalg_qr internally, MPS linalg_qr supports float32 only
-               DecorateInfo(unittest.expectedFailure, 'TestCommon', 'test_dtypes', device_type='mps'),
-               DecorateInfo(unittest.expectedFailure, 'TestCommon', 'test_noncontiguous_samples',
-                            device_type='mps', dtypes=(torch.complex64,)),
-               DecorateInfo(unittest.expectedFailure, 'TestCommon', 'test_variant_consistency_eager',
-                            device_type='mps', dtypes=(torch.complex64,)),
            )),
     BinaryUfuncInfo('polar',
                     dtypes=floating_types(),
@@ -20730,8 +20711,6 @@ op_db: list[OpInfo] = [
                # "AssertionError: RuntimeError not raised : Expected RuntimeError when doing an unsafe cast
                # from a result of dtype torch.float32 into an out= with dtype torch.long"
                DecorateInfo(unittest.expectedFailure, 'TestCommon', 'test_out', device_type='cuda'),
-               # The following dtypes did not work in forward but are listed by the OpInfo: {torch.bfloat16, torch.float16}.
-               DecorateInfo(unittest.expectedFailure, 'TestCommon', 'test_dtypes', device_type='mps'),
            )),
     OpInfo('bincount',
            dtypes=integral_types_and(),
